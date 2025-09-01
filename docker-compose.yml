@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:6-alpine
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - RATE_LIMIT_REQUESTS_PER_MIN=${RATE_LIMIT_REQUESTS_PER_MIN:-20}
+    env_file:
+      - ../.env
+    depends_on:
+      - redis
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build: ./frontend
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+      - NEXT_PUBLIC_TURNSTILE_SITE_KEY
+    env_file:
+      - ../.env
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+  worker:
+    build: ./backend
+    command: python worker.py
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - ../.env
+    depends_on:
+      - redis
